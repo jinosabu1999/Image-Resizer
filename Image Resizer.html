@@ -6,14 +6,15 @@
     <title>Image Resizer</title>
     <style>
         :root {
-            --primary-color: #00ffff;
-            --secondary-color: #ff00ff;
-            --bg-color: #111;
-            --text-color: #fff;
+            --primary-color: #e23636;
+            --secondary-color: #504a4a;
+            --bg-color: #0f1923;
+            --text-color: #ffffff;
+            --accent-color: #f1c40f;
         }
 
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Roboto', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
@@ -22,22 +23,30 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            background-image: url('https://qcqoqgbqzwxhvnlqjlxp.supabase.co/storage/v1/object/public/public-images/avengers_bg.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
         }
 
         .container {
             max-width: 800px;
             width: 100%;
-            padding: 0 15px;
+            padding: 20px;
             box-sizing: border-box;
+            background-color: rgba(15, 25, 35, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(226, 54, 54, 0.5);
         }
 
         h1 {
             text-align: center;
             color: var(--primary-color);
-            font-size: 2rem;
+            font-size: 2.5rem;
             margin-bottom: 30px;
             text-transform: uppercase;
             letter-spacing: 3px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .upload-area {
@@ -48,10 +57,11 @@
             cursor: pointer;
             transition: all 0.3s ease;
             margin-bottom: 20px;
+            background-color: rgba(80, 74, 74, 0.2);
         }
 
         .upload-area:hover {
-            background-color: rgba(0, 255, 255, 0.1);
+            background-color: rgba(226, 54, 54, 0.1);
         }
 
         #fileInput {
@@ -61,6 +71,7 @@
         #fileName {
             margin-top: 10px;
             font-style: italic;
+            color: var(--accent-color);
         }
 
         .preview {
@@ -68,15 +79,36 @@
             margin-bottom: 20px;
             width: 100%;
             max-width: 600px;
-            height: 250px;
+            height: 300px;
             border: 2px solid var(--primary-color);
             border-radius: 10px;
             overflow: hidden;
         }
 
-        .preview canvas {
+        .preview img {
             width: 100%;
             height: 100%;
+            object-fit: contain;
+        }
+
+        .sticky-preview {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            border: 2px solid var(--primary-color);
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 1000;
+            display: none;
+            background-color: rgba(15, 25, 35, 0.8);
+        }
+
+        .sticky-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .controls {
@@ -94,7 +126,8 @@
         label {
             display: block;
             margin-bottom: 5px;
-            color: var(--secondary-color);
+            color: var(--accent-color);
+            font-weight: bold;
         }
 
         input[type="number"], input[type="range"], select {
@@ -109,7 +142,7 @@
 
         button {
             background-color: var(--primary-color);
-            color: var(--bg-color);
+            color: var(--text-color);
             border: none;
             padding: 10px 20px;
             border-radius: 5px;
@@ -123,7 +156,8 @@
         }
 
         button:hover {
-            background-color: var(--secondary-color);
+            background-color: var(--accent-color);
+            color: var(--bg-color);
             transform: scale(1.05);
         }
 
@@ -170,9 +204,19 @@
             margin-right: 10px;
         }
 
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .action-buttons button {
+            flex-basis: 48%;
+        }
+
         @media (min-width: 768px) {
             h1 {
-                font-size: 2.5rem;
+                font-size: 3rem;
             }
 
             .control-group, .filter-group {
@@ -189,7 +233,12 @@
             <input type="file" id="fileInput" accept="image/*">
             <p id="fileName"></p>
         </div>
-        <div class="preview" id="preview"></div>
+        <div class="preview" id="preview">
+            <img id="previewImage" alt="Preview">
+        </div>
+        <div class="sticky-preview" id="stickyPreview">
+            <img id="stickyPreviewImage" alt="Sticky Preview">
+        </div>
         <div class="controls">
             <div class="control-group">
                 <label for="width">Width:</label>
@@ -233,16 +282,19 @@
                 <label for="blur">Blur:</label>
                 <input type="range" id="blur" min="0" max="10" value="0" step="0.1">
             </div>
-            <div class="filter-group">
-                <label for="rotate">Rotate (degrees):</label>
-                <input type="number" id="rotate" value="0">
-            </div>
+        </div>
+        <div class="action-buttons">
+            <button id="flipHorizontalBtn">Flip Horizontal</button>
+            <button id="grayscaleBtn">Grayscale</button>
+        </div>
+        <div class="action-buttons">
+            <button id="sepiaBtn">Sepia</button>
+            <button id="resetBtn">Reset</button>
         </div>
         <button id="resizeBtn">Resize & Download</button>
         <div class="loading" id="loading"></div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const uploadArea = document.getElementById('uploadArea');
@@ -256,15 +308,25 @@
             const resizeBtn = document.getElementById('resizeBtn');
             const loading = document.getElementById('loading');
             const preview = document.getElementById('preview');
+            const previewImage = document.getElementById('previewImage');
+            const stickyPreview = document.getElementById('stickyPreview');
+            const stickyPreviewImage = document.getElementById('stickyPreviewImage');
 
             const brightnessInput = document.getElementById('brightness');
             const contrastInput = document.getElementById('contrast');
             const saturationInput = document.getElementById('saturation');
             const blurInput = document.getElementById('blur');
-            const rotateInput = document.getElementById('rotate');
+
+            const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
+            const grayscaleBtn = document.getElementById('grayscaleBtn');
+            const sepiaBtn = document.getElementById('sepiaBtn');
+            const resetBtn = document.getElementById('resetBtn');
 
             let currentImage = null;
             let aspectRatio = 1;
+            let isFlippedHorizontal = false;
+            let isGrayscale = false;
+            let isSepia = false;
 
             uploadArea.addEventListener('click', () => {
                 fileInput.click();
@@ -283,15 +345,14 @@
             function processImage(file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        currentImage = img;
-                        aspectRatio = img.width / img.height;
-                        updateInputs(img.width, img.height);
+                    currentImage = new Image();
+                    currentImage.onload = () => {
+                        aspectRatio = currentImage.width / currentImage.height;
+                        updateInputs(currentImage.width, currentImage.height);
                         showPreview();
-                        drawPreview();
+                        applyFilters();
                     };
-                    img.src = e.target.result;
+                    currentImage.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             }
@@ -303,100 +364,122 @@
 
             function showPreview() {
                 preview.style.display = 'block';
+                stickyPreview.style.display = 'block';
+                previewImage.src = currentImage.src;
+                stickyPreviewImage.src = currentImage.src;
             }
 
-            function drawPreview() {
-                const canvas = document.createElement('canvas');
-                canvas.width = preview.clientWidth;
-                canvas.height = preview.clientHeight;
-                preview.innerHTML = '';
-                preview.appendChild(canvas);
-                const ctx = canvas.getContext('2d');
+            function applyFilters() {
+                if (!currentImage) return;
 
-                const width = parseInt(widthInput.value);
-                const height = parseInt(heightInput.value);
-                const scaleX = canvas.width / width;
-                const scaleY = canvas.height / height;
-                const scale = Math.min(scaleX, scaleY);
-                const scaledWidth = width * scale;
-                const scaledHeight = height * scale;
-                const offsetX = (canvas.width - scaledWidth) / 2;
-                const offsetY = (canvas.height - scaledHeight) / 2;
+                const brightness = brightnessInput.value;
+                const contrast = contrastInput.value;
+                const saturation = saturationInput.value;
+                const blur = blurInput.value;
 
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let filters = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)`;
 
-                // Apply filters
-                const brightness = parseFloat(brightnessInput.value) / 100;
-                const contrast = parseFloat(contrastInput.value) / 100;
-                const saturation = parseFloat(saturationInput.value) / 100;
-                const blur = parseFloat(blurInput.value);
-                const rotate = parseFloat(rotateInput.value);
+                if (isGrayscale) {
+                    filters += ' grayscale(100%)';
+                }
 
-                ctx.filter = `brightness(${brightness}) contrast(${contrast}) saturate(${saturation}) blur(${blur}px)`;
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.rotate((rotate * Math.PI) / 180);
-                ctx.translate(-canvas.width / 2, -canvas.height / 2);
-                ctx.drawImage(currentImage, offsetX, offsetY, scaledWidth, scaledHeight);
+                if (isSepia) {
+                    filters += ' sepia(100%)';
+                }
+
+                previewImage.style.filter = filters;
+                stickyPreviewImage.style.filter = filters;
+
+                previewImage.style.transform = isFlippedHorizontal ? 'scaleX(-1)' : 'scaleX(1)';
+                stickyPreviewImage.style.transform = isFlippedHorizontal ? 'scaleX(-1)' : 'scaleX(1)';
             }
 
             widthInput.addEventListener('input', () => {
                 if (lockAspectRatio.checked) {
                     heightInput.value = Math.round(widthInput.value / aspectRatio);
                 }
-                drawPreview();
             });
 
             heightInput.addEventListener('input', () => {
                 if (lockAspectRatio.checked) {
                     widthInput.value = Math.round(heightInput.value * aspectRatio);
                 }
-                drawPreview();
             });
 
-            brightnessInput.addEventListener('input', drawPreview);
-            contrastInput.addEventListener('input', drawPreview);
-            saturationInput.addEventListener('input', drawPreview);
-            blurInput.addEventListener('input', drawPreview);
-            rotateInput.addEventListener('input', drawPreview);
+            brightnessInput.addEventListener('input', applyFilters);
+            contrastInput.addEventListener('input', applyFilters);
+            saturationInput.addEventListener('input', applyFilters);
+            blurInput.addEventListener('input', applyFilters);
 
-            resizeBtn.addEventListener('click', () => {
+            flipHorizontalBtn.addEventListener('click', () => {
+                isFlippedHorizontal = !isFlippedHorizontal;
+                applyFilters();
+            });
+
+            grayscaleBtn.addEventListener('click', () => {
+                isGrayscale = !isGrayscale;
+                isSepia = false;
+                applyFilters();
+            });
+
+            sepiaBtn.addEventListener('click', () => {
+                isSepia = !isSepia;
+                isGrayscale = false;
+                applyFilters();
+            });
+
+            resetBtn.addEventListener('click', () => {
+                brightnessInput.value = 100;
+                contrastInput.value = 100;
+                saturationInput.value = 100;
+                blurInput.value = 0;
+                isFlippedHorizontal = false;
+                isGrayscale = false;
+                isSepia = false;
+                applyFilters();
+            });
+
+            resizeBtn.addEventListener('click', () => 
+            {
                 if (!currentImage) return;
 
                 loading.style.display = 'block';
 
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
                 const width = parseInt(widthInput.value);
                 const height = parseInt(heightInput.value);
+                canvas.width = width;
+                canvas.height = height;
+
+                ctx.filter = previewImage.style.filter;
+                if (isFlippedHorizontal) {
+                    ctx.translate(width, 0);
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(currentImage, 0, 0, width, height);
+
                 const quality = parseInt(qualityInput.value) / 100;
                 const format = formatSelect.value;
 
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-
-                // Apply filters
-                const brightness = parseFloat(brightnessInput.value) / 100;
-                const contrast = parseFloat(contrastInput.value) / 100;
-                const saturation = parseFloat(saturationInput.value) / 100;
-                const blur = parseFloat(blurInput.value);
-                const rotate = parseFloat(rotateInput.value);
-
-                ctx.filter = `brightness(${brightness}) contrast(${contrast}) saturate(${saturation}) blur(${blur}px)`;
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.rotate((rotate * Math.PI) / 180);
-                ctx.translate(-canvas.width / 2, -canvas.height / 2);
-                ctx.drawImage(currentImage, 0, 0, width, height);
-
-                setTimeout(() => {
-                    const dataUrl = canvas.toDataURL(`image/${format}`, quality);
-
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
-                    link.href = dataUrl;
+                    link.href = url;
                     link.download = `resized_image.${format}`;
                     link.click();
-
+                    URL.revokeObjectURL(url);
                     loading.style.display = 'none';
-                }, 100);
+                }, `image/${format}`, quality);
+            });
+
+            // Show/hide sticky preview based on scroll position
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > preview.offsetTop + preview.offsetHeight) {
+                    stickyPreview.style.display = 'block';
+                } else {
+                    stickyPreview.style.display = 'none';
+                }
             });
         });
     </script>
